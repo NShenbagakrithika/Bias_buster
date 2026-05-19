@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+/* ===============================
+   DESIGN TOKENS
+   =============================== */
+
+:root {
+  /* Light Mode (deep navy + soft cyan) */
+  --bg: #F3F6FA;
+  --card: #FFFFFF;
+  --border: #E2E8F0;
+
+  --text: #0F172A;     /* deep slate/navy */
+  --muted: #64748B;
+
+  /* Brand */
+  --primary: #1E3A8A;  /* deep navy */
+  --accent: #0891B2;   /* soft cyan */
+
+  --input-bg: #FFFFFF;
+  --ring: rgba(8, 145, 178, 0.28);
+}
+
+.dark {
+  /* Dark Mode (true navy base) */
+  --bg: #0B1120;
+  --card: #111827;
+  --border: #1F2937;
+
+  --text: #E5E7EB;
+  --muted: #94A3B8;
+
+  /* Brand */
+  --primary: #0891B2;  /* cyan becomes primary in dark */
+  --accent: #E5E7EB;
+
+  --input-bg: #111827;
+  --ring: rgba(8, 145, 178, 0.35);
+}
+
+/* ===============================
+   BASE STYLES
+   =============================== */
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
