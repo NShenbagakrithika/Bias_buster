@@ -14,7 +14,7 @@ export default function PublicLayout() {
             onClick={() => navigate("/")}
             className="text-sm font-semibold tracking-tight text-[var(--text)]"
           >
-            ScriptEngine
+            Bias Buster
           </button>
 
           <div className="flex items-center gap-2">

@@ -33,39 +33,60 @@ export default function Rules() {
   const rules: Rule[] = useMemo(
     () => [
       {
-        id: "clarity",
-        name: "Clarity Check",
-        description: "Flags vague promises and unclear outcomes that confuse the reader.",
-        example: "Instead of: ‘Boost your growth’ → ‘Increase qualified leads in 30 days’.",
-        severity: "Medium",
-      },
-      {
-        id: "specificity",
-        name: "Specificity Check",
-        description: "Detects generic language that fails to communicate a concrete value.",
-        example: "Add numbers, timeframes, constraints, or scope. ‘Faster onboarding’ → ‘Onboard in 3 steps’.",
-        severity: "Medium",
-      },
-      {
-        id: "proof",
-        name: "Proof Check",
-        description: "Flags claims that require evidence (metrics, case lines, examples).",
-        example: "If you say ‘#1’ or ‘guaranteed’, add the source or rephrase to be compliant.",
+        id: "gender",
+        name: "Gender Bias",
+        description: "Flags gender-coded words and role labels that can narrow who feels invited.",
+        example: "‘Rockstar salesman’ → ‘skilled sales specialist’.",
         severity: "High",
       },
       {
-        id: "cta",
-        name: "CTA Check",
-        description: "Ensures the next step is explicit and low-friction.",
-        example: "‘Get started’ → ‘Get a 30‑second audit summary’.",
+        id: "age",
+        name: "Age Bias",
+        description: "Flags phrases that imply preference for younger or older people.",
+        example: "‘Young digital native’ → ‘comfortable learning new tools’.",
+        severity: "High",
+      },
+      {
+        id: "disability",
+        name: "Disability Bias",
+        description: "Flags ableist or stigmatizing metaphors tied to disability or mental health.",
+        example: "‘Sanity check’ → ‘review’. ‘Blind spot’ → ‘missed risk’.",
+        severity: "High",
+      },
+      {
+        id: "culture",
+        name: "Cultural Bias",
+        description: "Flags cultural gatekeeping and vague belonging language.",
+        example: "‘Culture fit’ → ‘values-aligned collaboration’.",
+        severity: "Medium",
+      },
+      {
+        id: "socioeconomic",
+        name: "Socioeconomic Bias",
+        description: "Flags pedigree, access, or background filters that may exclude qualified people.",
+        example: "‘Ivy League preferred’ → ‘relevant work samples or equivalent experience’.",
+        severity: "Medium",
+      },
+      {
+        id: "tone",
+        name: "Tone Bias",
+        description: "Flags combative wording that can signal exclusionary or high-pressure culture.",
+        example: "‘Crush targets’ → ‘deliver measurable results’.",
+        severity: "Medium",
+      },
+      {
+        id: "evidence",
+        name: "Evidence Risk",
+        description: "Flags absolute claims that need proof or softer language.",
+        example: "‘100% guaranteed’ → ‘designed to help’ with a supporting metric.",
+        severity: "Medium",
+      },
+      {
+        id: "accessibility",
+        name: "Accessibility Clarity",
+        description: "Flags vague action text and assumptions about what is obvious or easy.",
+        example: "‘Click here’ → ‘Download the report’.",
         severity: "Low",
-      },
-      {
-        id: "compliance",
-        name: "Compliance Check",
-        description: "Flags risky wording and unsupported guarantees.",
-        example: "Avoid absolute claims unless you can prove them: ‘100% guaranteed’ → ‘Designed to improve…’.",
-        severity: "High",
       },
     ],
     []
@@ -94,8 +115,8 @@ export default function Rules() {
     <Page>
       <div className="space-y-5">
         <Card
-          title="Rules"
-          subtitle="Control which checks are enabled. Changes apply instantly."
+          title="Bias Rules"
+          subtitle="Control which inclusion checks are enabled. Changes apply instantly."
         >
           <div className="space-y-3">
             {rules.map((r) => {

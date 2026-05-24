@@ -1,6 +1,6 @@
 import { historyStore, type HistoryItem } from "../observer/HistoryStore";
 import { RulesRegistry } from "../singleton/RulesRegistry";
-import { runAuditChain, type Finding } from "../chain/auditChain";
+import { runAuditChain, summarizeFindings, type Finding } from "../chain/auditChain";
 import {
   createAuditPipelineFromRegistry,
   type ContentType,
@@ -69,11 +69,18 @@ export class WorkspaceFacade {
     });
   }
 
-  saveAuditToReports(params: { input: string; contentType: ContentType; mode: string }) {
+  saveAuditToReports(params: {
+    input: string;
+    contentType: ContentType;
+    mode: string;
+    findings?: Finding[];
+  }) {
+    const findings = params.findings ?? this.runAudit(params);
     historyStore.add({
       kind: "audit",
       input: params.input,
       meta: { contentType: params.contentType, mode: params.mode },
+      output: { findings, summary: summarizeFindings(findings) },
     });
   }
 
@@ -83,10 +90,12 @@ export class WorkspaceFacade {
   }
 
   saveRewriteToReports(params: { input: string; tone: Tone }) {
+    const variants = this.generateRewrites(params.tone, params.input);
     historyStore.add({
       kind: "rewrite",
       input: params.input,
       meta: { tone: params.tone },
+      output: { variants },
     });
   }
 }

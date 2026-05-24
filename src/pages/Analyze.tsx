@@ -9,12 +9,31 @@ import Textarea from "../components/ui/Textarea";
 import { useToast } from "../components/toast/ToastProvider";
 
 // Core (Design Patterns)
-import { runAuditChain, type Finding, type Severity } from "../core/chain/auditChain";
+import {
+  runAuditChain,
+  summarizeFindings,
+  type AuditSummary,
+  type Finding,
+  type Severity,
+} from "../core/chain/auditChain";
 import {
   createAuditPipelineFromRegistry,
   type ContentType,
 } from "../core/factory/auditPipelineFactory";
 import { historyStore } from "../core/observer/HistoryStore";
+
+const sampleInputs: Record<ContentType, string> = {
+  Hiring:
+    "We need a young digital native rockstar who can crush targets, fit our culture, and speak native English. Ivy League background preferred.",
+  Marketing:
+    "Our revolutionary platform is guaranteed to help normal users dominate their market. Click here to get started.",
+  Education:
+    "This simple program is easy for everyone and ideal for mature candidates with no gaps and polished backgrounds.",
+  Healthcare:
+    "This 100% guaranteed treatment is a sanity check for patients who want normal results instantly. See below.",
+  General:
+    "We need a guru who can lead the war room, avoid blind spots, and deliver world-class results with no risk.",
+};
 
 async function copyToClipboard(text: string) {
   try {
@@ -53,6 +72,12 @@ function badgeClass(sev: Severity) {
   }
 }
 
+function scoreTone(summary: AuditSummary) {
+  if (summary.score >= 78) return "text-[color-mix(in_srgb,#16a34a_80%,var(--text))]";
+  if (summary.score >= 50) return "text-[color-mix(in_srgb,#d97706_80%,var(--text))]";
+  return "text-[color-mix(in_srgb,#dc2626_85%,var(--text))]";
+}
+
 function ResultsSkeleton() {
   return (
     <div className="space-y-2">
@@ -82,12 +107,13 @@ function ResultsSkeleton() {
 export default function Analyze() {
   const { toast } = useToast();
 
-  const [contentType, setContentType] = useState<ContentType>("Ad");
-  const [mode, setMode] = useState("B2B SaaS");
+  const [contentType, setContentType] = useState<ContentType>("Hiring");
+  const [mode, setMode] = useState("Strict");
   const [copy, setCopy] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Finding[]>([]);
+  const [summary, setSummary] = useState<AuditSummary>(() => summarizeFindings([]));
   const [hasRun, setHasRun] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -140,6 +166,8 @@ export default function Analyze() {
     });
 
     setResults(findings);
+    const nextSummary = summarizeFindings(findings);
+    setSummary(nextSummary);
 
     // Expand first finding for nicer UX
     const first = findings[0]?.id;
@@ -150,6 +178,7 @@ export default function Analyze() {
       kind: "audit",
       input: copy,
       meta: { mode, contentType },
+      output: { findings, summary: nextSummary },
     });
 
     setLoading(false);
@@ -164,8 +193,8 @@ export default function Analyze() {
     <Page>
       <div className="space-y-5">
         <Card
-          title="Copy Audit"
-          subtitle="Choose a type and mode, paste copy, and get clear findings with suggested fixes."
+          title="Bias Audit"
+          subtitle="Scan hiring, marketing, education, or healthcare text for exclusion risk and inclusive rewrite opportunities."
           right={
             <div className="hidden sm:block text-xs text-[var(--muted)]">
               Preset: <span className="font-semibold text-[var(--text)]">{mode}</span>
@@ -174,29 +203,30 @@ export default function Analyze() {
         >
           <div className="grid gap-4 md:grid-cols-3">
             <div>
-              <label className="text-xs text-[var(--muted)]">Content Type</label>
+              <label className="text-xs text-[var(--muted)]">Use Case</label>
               <Select
                 className="mt-1"
                 value={contentType}
                 onChange={(e) => setContentType(e.target.value as ContentType)}
               >
-                <option>Ad</option>
-                <option>Landing Page</option>
-                <option>Email</option>
-                <option>Generic</option>
+                <option>Hiring</option>
+                <option>Marketing</option>
+                <option>Education</option>
+                <option>Healthcare</option>
+                <option>General</option>
               </Select>
             </div>
 
             <div>
-              <label className="text-xs text-[var(--muted)]">Mode</label>
+              <label className="text-xs text-[var(--muted)]">Review Mode</label>
               <Select
                 className="mt-1"
                 value={mode}
                 onChange={(e) => setMode(e.target.value)}
               >
-                <option>B2B SaaS</option>
-                <option>D2C</option>
-                <option>Healthcare Safe</option>
+                <option>Strict</option>
+                <option>Balanced</option>
+                <option>Fast Review</option>
               </Select>
             </div>
 
@@ -215,8 +245,15 @@ export default function Analyze() {
               value={copy}
               onChange={(e) => setCopy(e.target.value)}
             />
-            <div className="mt-2 text-xs text-[var(--muted)]">
-              Tip: include the headline and CTA line for the most useful findings.
+            <div className="mt-2 flex flex-col gap-2 text-xs text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between">
+              <span>Tip: paste the exact text people will see for the most useful findings.</span>
+              <button
+                type="button"
+                className="text-left font-semibold text-[var(--primary)] hover:underline sm:text-right"
+                onClick={() => setCopy(sampleInputs[contentType])}
+              >
+                Load market-impact sample
+              </button>
             </div>
           </div>
         </Card>
@@ -224,7 +261,7 @@ export default function Analyze() {
         <Card
           title="Results"
           subtitle={
-            hasRun ? "Findings from your latest audit." : "Run an audit to generate findings."
+            hasRun ? "Risk score, category breakdown, and explainable fixes." : "Run an audit to generate findings."
           }
         >
           {!hasRun ? (
@@ -234,15 +271,35 @@ export default function Analyze() {
           ) : loading ? (
             <ResultsSkeleton />
           ) : results.length === 0 ? (
-            <div className="text-sm text-[var(--muted)]">No findings.</div>
+            <div className="rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,#22c55e_7%,var(--card))] p-4">
+              <div className={`text-3xl font-semibold ${scoreTone(summary)}`}>{summary.score}</div>
+              <div className="mt-1 text-sm font-semibold text-[var(--text)]">{summary.level}</div>
+              <div className="mt-1 text-sm text-[var(--muted)]">{summary.headline}</div>
+            </div>
           ) : (
-            <motion.div
-              variants={listVariants}
-              initial="hidden"
-              animate="show"
-              className="space-y-2"
-            >
-              {results.map((r) => (
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-[180px_1fr]">
+                <div className="rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--primary)_4%,var(--card))] p-4">
+                  <div className={`text-4xl font-semibold ${scoreTone(summary)}`}>{summary.score}</div>
+                  <div className="mt-1 text-sm font-semibold text-[var(--text)]">{summary.level}</div>
+                  <div className="mt-2 text-xs leading-5 text-[var(--muted)]">{summary.headline}</div>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  {Object.entries(summary.categories).map(([category, count]) => (
+                    <div
+                      key={category}
+                      className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3"
+                    >
+                      <div className="text-xs font-semibold text-[var(--muted)]">{category}</div>
+                      <div className="mt-1 text-xl font-semibold text-[var(--text)]">{count}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <motion.div variants={listVariants} initial="hidden" animate="show" className="space-y-2">
+                {results.map((r) => (
                 <motion.div
                   key={r.id}
                   variants={itemVariants}
@@ -267,6 +324,9 @@ export default function Analyze() {
                         <div className="text-sm font-semibold text-[var(--text)]">
                           {r.title}
                         </div>
+                        <span className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[11px] font-semibold text-[var(--muted)]">
+                          {r.category}
+                        </span>
                         <motion.span
                           aria-hidden
                           initial={false}
@@ -278,6 +338,11 @@ export default function Analyze() {
                         </motion.span>
                       </div>
                       <div className="mt-1 text-sm text-[var(--muted)]">{r.detail}</div>
+                      {r.matchedText ? (
+                        <div className="mt-2 text-xs text-[var(--muted)]">
+                          Flagged: <span className="font-semibold text-[var(--text)]">{r.matchedText}</span>
+                        </div>
+                      ) : null}
                     </div>
 
                     <span
@@ -302,19 +367,19 @@ export default function Analyze() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="text-xs font-semibold text-[var(--text)]">
-                              Suggestion
-                            </div>
+                            <div className="text-xs font-semibold text-[var(--text)]">Suggestion</div>
                             <div className="mt-1 text-sm text-[var(--muted)]">
                               {r.suggestion}
                             </div>
+                            <div className="mt-3 text-xs font-semibold text-[var(--text)]">Inclusive rewrite</div>
+                            <div className="mt-1 text-sm text-[var(--muted)]">{r.inclusiveRewrite}</div>
                           </div>
 
                           <Button
                             variant="secondary"
                             className="shrink-0"
                             onClick={async () => {
-                              const ok = await copyToClipboard(r.suggestion ?? "");
+                              const ok = await copyToClipboard(r.inclusiveRewrite);
                               toast({
                                 title: ok ? "Copied" : "Copy failed",
                                 message: ok
@@ -331,7 +396,8 @@ export default function Analyze() {
                   </AnimatePresence>
                 </motion.div>
               ))}
-            </motion.div>
+              </motion.div>
+            </div>
           )}
         </Card>
       </div>

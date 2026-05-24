@@ -8,11 +8,12 @@ export type HistoryItem = {
   input: string;
   createdAt: number; // epoch ms
   meta?: Record<string, string>;
+  output?: unknown;
 };
 
 type Listener = (items: HistoryItem[]) => void;
 
-const HISTORY_KEY = "scriptengine.history.v1";
+const HISTORY_KEY = "biasbuster.history.v2";
 
 /**
  * Observer Pattern:

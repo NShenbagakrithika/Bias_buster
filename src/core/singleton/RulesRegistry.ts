@@ -2,7 +2,7 @@
 
 export type RuleToggles = Record<string, boolean>;
 
-const RULES_KEY = "scriptengine.rules.v1";
+const RULES_KEY = "biasbuster.rules.v2";
 
 /**
  * Singleton Pattern:

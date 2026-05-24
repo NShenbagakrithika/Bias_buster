@@ -16,6 +16,20 @@ function fmt(ts: number) {
   }
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function outputPreview(output: unknown) {
+  const record = asRecord(output);
+  const findings = Array.isArray(record.findings) ? record.findings : [];
+  const variants = Array.isArray(record.variants) ? record.variants : [];
+
+  if (findings.length) return `${findings.length} findings saved`;
+  if (variants.length) return `${variants.length} rewrite variants saved`;
+  return "No output details saved";
+}
+
 export default function History() {
   const { toast } = useToast();
 
@@ -46,7 +60,7 @@ export default function History() {
     historyStore.clear();
     // Re-add in reverse to preserve order
     [...next].reverse().forEach((it) => {
-      historyStore.add({ kind: it.kind, input: it.input, meta: it.meta });
+      historyStore.add({ kind: it.kind, input: it.input, meta: it.meta, output: it.output });
     });
 
     if (openId === id) setOpenId(null);
@@ -95,7 +109,7 @@ export default function History() {
             </div>
             <div className="w-full sm:w-[220px]">
               <label className="text-xs text-[var(--muted)]">Filter</label>
-              <Select className="mt-1" value={filter} onChange={(e) => setFilter(e.target.value as any)}>
+              <Select className="mt-1" value={filter} onChange={(e) => setFilter(e.target.value as "all" | HistoryKind)}>
                 <option value="all">All</option>
                 <option value="audit">Audit</option>
                 <option value="rewrite">Rewrite Studio</option>
@@ -171,11 +185,11 @@ export default function History() {
                                 <div className="mt-1 whitespace-pre-wrap text-sm text-[var(--muted)]">{it.input}</div>
 
                                 <div className="mt-4 flex items-center justify-between">
-                                  <div className="text-xs font-semibold text-[var(--text)]">Meta</div>
+                                  <div className="text-xs font-semibold text-[var(--text)]">Saved output</div>
                                   <Button
                                     variant="secondary"
                                     onClick={async () => {
-                                      const payload = `${title}\n${subtitle}\n\nInput:\n${it.input}\n\nMeta:\n${JSON.stringify(it.meta ?? {}, null, 2)}`;
+                                      const payload = `${title}\n${subtitle}\n\nInput:\n${it.input}\n\nMeta:\n${JSON.stringify(it.meta ?? {}, null, 2)}\n\nOutput:\n${JSON.stringify(it.output ?? {}, null, 2)}`;
                                       try {
                                         await navigator.clipboard.writeText(payload);
                                         toast({ title: "Copied", message: "Report copied." });
@@ -189,7 +203,10 @@ export default function History() {
                                 </div>
 
                                 <div className="mt-2 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
-                                  <pre className="whitespace-pre-wrap text-xs text-[var(--muted)]">{JSON.stringify(it.meta ?? {}, null, 2)}</pre>
+                                  <div className="text-sm font-semibold text-[var(--text)]">{outputPreview(it.output)}</div>
+                                  <pre className="mt-2 max-h-[280px] overflow-auto whitespace-pre-wrap text-xs text-[var(--muted)]">
+                                    {JSON.stringify({ meta: it.meta ?? {}, output: it.output ?? {} }, null, 2)}
+                                  </pre>
                                 </div>
                               </>
                             </div>

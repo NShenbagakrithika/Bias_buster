@@ -7,57 +7,14 @@ import Button from "../components/ui/Button";
 import Select from "../components/ui/Select";
 import Textarea from "../components/ui/Textarea";
 import { useToast } from "../components/toast/ToastProvider";
+import { generateRewriteVariants, type Tone } from "../core/strategy/rewriteStrategies";
+import { historyStore } from "../core/observer/HistoryStore";
 
 type Variant = {
   id: string;
   label: string;
   text: string;
 };
-
-type HistoryItem =
-  | {
-      id: string;
-      type: "analyze";
-      createdAt: number;
-      meta: { mode: string; contentType: string };
-      input: { copy: string };
-      output: { results: any[] };
-    }
-  | {
-      id: string;
-      type: "rewrite";
-      createdAt: number;
-      meta: { tone: string };
-      input: { original: string };
-      output: { variants: Variant[] };
-    };
-
-const HISTORY_KEY = "biasbuster.history.v1";
-
-function loadHistory(): HistoryItem[] {
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as HistoryItem[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveHistory(items: HistoryItem[]) {
-  try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
-  } catch {
-    // ignore quota / private mode
-  }
-}
-
-function pushHistory(item: HistoryItem) {
-  const prev = loadHistory();
-  const next = [item, ...prev].slice(0, 50);
-  saveHistory(next);
-}
 
 async function copyToClipboard(text: string) {
   try {
@@ -79,41 +36,6 @@ async function copyToClipboard(text: string) {
       return false;
     }
   }
-}
-
-function buildVariants(tone: string, base: string): Variant[] {
-  const trimmed = base.trim();
-  const seed = trimmed.length ? trimmed : "Your copy goes here.";
-
-  const presets: Record<string, (s: string) => Variant[]> = {
-    Direct: (s) => [
-      { id: "d1", label: "Direct", text: s.replace(/\s+/g, " ").trim() },
-      { id: "d2", label: "Clear", text: `Here’s the point: ${s.replace(/\s+/g, " ").trim()}` },
-      { id: "d3", label: "Short", text: `${s.replace(/\.$/, "")} — start here.` },
-    ],
-    Premium: (s) => [
-      { id: "p1", label: "Refined", text: `A refined approach: ${s.replace(/\s+/g, " ").trim()}` },
-      {
-        id: "p2",
-        label: "Confident",
-        text: `Designed for clarity and confidence — ${s.replace(/\s+/g, " ").trim()}`,
-      },
-      { id: "p3", label: "Executive", text: `${s.replace(/\s+/g, " ").trim()} (Built for decision-makers.)` },
-    ],
-    Aggressive: (s) => [
-      { id: "a1", label: "Punchy", text: `Stop guessing. ${s.replace(/\s+/g, " ").trim()}` },
-      { id: "a2", label: "Direct", text: `If you’re serious: ${s.replace(/\s+/g, " ").trim()}` },
-      { id: "a3", label: "Urgent", text: `${s.replace(/\.$/, "")} — do it now.` },
-    ],
-    Soft: (s) => [
-      { id: "s1", label: "Gentle", text: `If this helps: ${s.replace(/\s+/g, " ").trim()}` },
-      { id: "s2", label: "Supportive", text: `A calm next step — ${s.replace(/\s+/g, " ").trim()}` },
-      { id: "s3", label: "Warm", text: `Whenever you’re ready: ${s.replace(/\s+/g, " ").trim()}` },
-    ],
-  };
-
-  const fn = presets[tone] ?? presets.Direct;
-  return fn(seed);
 }
 
 function VariantsSkeleton() {
@@ -141,7 +63,7 @@ function VariantsSkeleton() {
 export default function RewriteStudio() {
   const { toast } = useToast();
 
-  const [tone, setTone] = useState("Direct");
+  const [tone, setTone] = useState<Tone>("Inclusive");
   const [original, setOriginal] = useState("");
   const [loading, setLoading] = useState(false);
   const [variants, setVariants] = useState<Variant[]>([]);
@@ -185,21 +107,21 @@ export default function RewriteStudio() {
 
     await new Promise((r) => setTimeout(r, 550));
 
-    const out = buildVariants(tone, original);
+    const out = generateRewriteVariants(tone, original).map((variant, index) => ({
+      id: `${tone}-${index}`,
+      label: variant.name,
+      text: variant.fullText,
+    }));
     setVariants(out);
     setExpanded(out[0]?.id ? { [out[0].id]: true } : {});
     setLoading(false);
 
-    // Persist to Reports (localStorage)
-    const item: HistoryItem = {
-      id: (crypto?.randomUUID?.() ?? String(Date.now() + Math.random())) as string,
-      type: "rewrite",
-      createdAt: Date.now(),
+    historyStore.add({
+      kind: "rewrite",
+      input: original,
       meta: { tone },
-      input: { original },
       output: { variants: out },
-    };
-    pushHistory(item);
+    });
 
     toast({ title: "Variants generated", message: `${tone} • ${out.length} options • saved to reports` });
   }
@@ -223,8 +145,8 @@ export default function RewriteStudio() {
     <Page>
       <div className="space-y-5">
         <Card
-          title="Rewrite Studio"
-          subtitle="Generate tone-controlled variants from a single input."
+          title="Inclusive Rewrite Studio"
+          subtitle="Turn flagged language into clearer, safer, more inclusive alternatives."
           right={
             <div className="flex items-center gap-2">
               <Button variant="secondary" onClick={copyAll} disabled={!variants.length}>
@@ -235,12 +157,12 @@ export default function RewriteStudio() {
         >
           <div className="grid gap-4 md:grid-cols-3">
             <div>
-              <label className="text-xs text-[var(--muted)]">Tone</label>
-              <Select className="mt-1" value={tone} onChange={(e) => setTone(e.target.value)}>
-                <option>Direct</option>
-                <option>Premium</option>
-                <option>Aggressive</option>
-                <option>Soft</option>
+              <label className="text-xs text-[var(--muted)]">Rewrite Style</label>
+              <Select className="mt-1" value={tone} onChange={(e) => setTone(e.target.value as Tone)}>
+                <option>Inclusive</option>
+                <option>Professional</option>
+                <option>Warm</option>
+                <option>Concise</option>
               </Select>
             </div>
             <div className="md:col-span-2 flex items-end">

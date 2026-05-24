@@ -2,12 +2,25 @@
 
 export type Severity = "High" | "Medium" | "Low";
 
+export type BiasCategory =
+  | "Gender"
+  | "Age"
+  | "Disability"
+  | "Culture"
+  | "Socioeconomic"
+  | "Tone"
+  | "Evidence"
+  | "Accessibility";
+
 export type Finding = {
   id: string;
   title: string;
+  category: BiasCategory;
   detail: string;
-  suggestion?: string;
+  suggestion: string;
+  inclusiveRewrite: string;
   severity: Severity;
+  matchedText?: string;
 };
 
 export type AuditContext = {
@@ -16,17 +29,18 @@ export type AuditContext = {
   mode: string;
 };
 
+export type AuditSummary = {
+  score: number;
+  level: "Low risk" | "Moderate risk" | "High risk";
+  headline: string;
+  categories: Record<BiasCategory, number>;
+};
+
 export interface AuditRule {
-  /** Unique stable id, used by RulesRegistry toggles */
   id: string;
   run(ctx: AuditContext): Finding[];
 }
 
-/**
- * Chain of Responsibility:
- * A request (ctx) flows through an ordered chain of handlers (rules),
- * each handler may add findings, then the request proceeds to the next handler.
- */
 export function runAuditChain(chain: AuditRule[], ctx: AuditContext): Finding[] {
   const findings: Finding[] = [];
 
@@ -38,124 +52,237 @@ export function runAuditChain(chain: AuditRule[], ctx: AuditContext): Finding[] 
   return findings;
 }
 
-// ----------------------------
-// Concrete rules (handlers)
-// ----------------------------
+export function summarizeFindings(findings: Finding[]): AuditSummary {
+  const weights: Record<Severity, number> = { High: 28, Medium: 16, Low: 8 };
+  const penalty = findings.reduce((sum, finding) => sum + weights[finding.severity], 0);
+  const score = Math.max(0, Math.min(100, 100 - penalty));
+  const level = score >= 78 ? "Low risk" : score >= 50 ? "Moderate risk" : "High risk";
 
-const vagueWords = /\b(best|world[- ]class|revolutionary|game[- ]changer|skyrocket|instantly|guaranteed|no\s*risk|100%)\b/i;
-const weakCTA = /\b(get started|start today|learn more|click here)\b/i;
-const numbersHint = /\b(\d+%|\d+\s*(days?|weeks?|months?)|\d+\s*(steps?|mins?|minutes?))\b/i;
+  const categories = findings.reduce((acc, finding) => {
+    acc[finding.category] = (acc[finding.category] ?? 0) + 1;
+    return acc;
+  }, {} as Record<BiasCategory, number>);
 
-export const clarityRule: AuditRule = {
-  id: "clarity",
+  return {
+    score,
+    level,
+    categories,
+    headline:
+      findings.length === 0
+        ? "No obvious inclusion risks found."
+        : `${findings.length} inclusion ${findings.length === 1 ? "risk" : "risks"} found.`,
+  };
+}
+
+function matchFirst(text: string, pattern: RegExp) {
+  return text.match(pattern)?.[0];
+}
+
+const genderedTerms =
+  /\b(rockstar|ninja|guru|chairman|manpower|salesman|guys|maternity leave only|he\/she|he or she)\b/i;
+const ageTerms =
+  /\b(young|digital native|recent graduate|energetic graduate|native speaker|mature candidate|overqualified|fresh blood)\b/i;
+const disabilityTerms =
+  /\b(crazy|insane|lame|blind spot|tone deaf|sanity check|able-bodied|walk-in only)\b/i;
+const cultureTerms =
+  /\b(native english|native speaker|culture fit|strong english accent|articulate for|clean-cut|professional hair)\b/i;
+const socioeconomicTerms =
+  /\b(elite school|top-tier university|ivy league|must own|reliable car required|no gaps|polished background)\b/i;
+const aggressiveTerms =
+  /\b(crush|dominate|destroy|killer|war room|aggressive|relentless|whatever it takes)\b/i;
+const absoluteClaims =
+  /\b(guaranteed|100%|no risk|instantly|always|never|best|#1|world-class|revolutionary)\b/i;
+const accessibilityTerms =
+  /\b(click here|see below|obviously|just|simple|easy for everyone|normal users)\b/i;
+
+export const genderBiasRule: AuditRule = {
+  id: "gender",
   run: (ctx) => {
-    const text = ctx.input.trim();
-    if (!text) return [];
+    const matchedText = matchFirst(ctx.input, genderedTerms);
+    if (!matchedText) return [];
 
-    if (vagueWords.test(text) && !numbersHint.test(text)) {
-      return [
-        {
-          id: "clarity",
-          title: "Clarity",
-          severity: "Medium",
-          detail:
-            "The promise feels broad or vague, so the reader may not instantly understand the outcome.",
-          suggestion:
-            "Make the outcome specific (number/time/steps) and tighten the first sentence so the core idea lands fast.",
-        },
-      ];
-    }
-    return [];
+    return [
+      {
+        id: "gender",
+        title: "Gender-coded language",
+        category: "Gender",
+        severity: "High",
+        matchedText,
+        detail:
+          "This wording can signal a narrow gender expectation or make the audience feel implicitly excluded.",
+        suggestion:
+          "Use role-neutral language and describe the actual behavior, skill, or responsibility you need.",
+        inclusiveRewrite:
+          "Replace terms like rockstar, ninja, chairman, or manpower with precise alternatives such as specialist, lead, chair, team, or workforce.",
+      },
+    ];
   },
 };
 
-export const specificityRule: AuditRule = {
-  id: "specificity",
+export const ageBiasRule: AuditRule = {
+  id: "age",
   run: (ctx) => {
-    const text = ctx.input.trim();
-    if (!text) return [];
+    const matchedText = matchFirst(ctx.input, ageTerms);
+    if (!matchedText) return [];
 
-    // crude heuristic: very short or very generic
-    const tooGeneric = text.length < 80 && !numbersHint.test(text);
-    if (tooGeneric) {
-      return [
-        {
-          id: "specificity",
-          title: "Specificity",
-          severity: "Medium",
-          detail:
-            "The message is short and may feel generic; it doesn’t communicate concrete value fast enough.",
-          suggestion:
-            "Add scope + constraint (who it’s for / what it replaces / what changes) and include a measurable outcome.",
-        },
-      ];
-    }
-    return [];
+    return [
+      {
+        id: "age",
+        title: "Age-coded requirement",
+        category: "Age",
+        severity: "High",
+        matchedText,
+        detail:
+          "This phrase can imply preference for a certain age group instead of focusing on the capability required.",
+        suggestion:
+          "Describe the experience, adaptability, or tool fluency directly without age signals.",
+        inclusiveRewrite:
+          "Replace age-coded language with measurable requirements, such as experience with the tool, ability to learn quickly, or comfort working in a fast-moving team.",
+      },
+    ];
   },
 };
 
-export const proofRule: AuditRule = {
-  id: "proof",
+export const disabilityBiasRule: AuditRule = {
+  id: "disability",
   run: (ctx) => {
-    const text = ctx.input.trim();
-    if (!text) return [];
+    const matchedText = matchFirst(ctx.input, disabilityTerms);
+    if (!matchedText) return [];
 
-    if (/\b(best|#1|leading|guaranteed|instant|skyrocket)\b/i.test(text)) {
-      return [
-        {
-          id: "proof",
-          title: "Proof",
-          severity: "High",
-          detail: "There’s a strong claim without a supporting proof point.",
-          suggestion:
-            "Either add a proof line (metric/case/benchmark) or soften the claim to stay credible and compliant.",
-        },
-      ];
-    }
-    return [];
+    return [
+      {
+        id: "disability",
+        title: "Ableist or stigmatizing phrase",
+        category: "Disability",
+        severity: "High",
+        matchedText,
+        detail:
+          "This wording can casually associate disability or mental health language with incompetence or negativity.",
+        suggestion:
+          "Use plain, specific language for the issue instead of metaphors tied to disability or mental health.",
+        inclusiveRewrite:
+          "Replace phrases like crazy, insane, lame, sanity check, or blind spot with specific alternatives such as surprising, unreasonable, ineffective, review, or missed risk.",
+      },
+    ];
   },
 };
 
-export const ctaRule: AuditRule = {
-  id: "cta",
+export const culturalBiasRule: AuditRule = {
+  id: "culture",
   run: (ctx) => {
-    const text = ctx.input.trim();
-    if (!text) return [];
+    const matchedText = matchFirst(ctx.input, cultureTerms);
+    if (!matchedText) return [];
 
-    if (weakCTA.test(text) && !/\b(book|schedule|try|run|audit|download)\b/i.test(text)) {
-      return [
-        {
-          id: "cta",
-          title: "CTA",
-          severity: "Low",
-          detail: "The next step is present but could be more explicit and lower-friction.",
-          suggestion:
-            "Replace with a concrete action: “Run a 30-second audit”, “Get 3 rewrite options”, “See a sample report”.",
-        },
-      ];
-    }
-    return [];
+    return [
+      {
+        id: "culture",
+        title: "Cultural or language gatekeeping",
+        category: "Culture",
+        severity: "Medium",
+        matchedText,
+        detail:
+          "This wording may favor a narrow cultural background or communication style unrelated to the real outcome.",
+        suggestion:
+          "Name the communication requirement directly and avoid identity-coded shortcuts.",
+        inclusiveRewrite:
+          "Replace culture fit or native speaker requirements with clear criteria, such as communicates clearly with customers in English or collaborates well across teams.",
+      },
+    ];
   },
 };
 
-export const complianceRule: AuditRule = {
-  id: "compliance",
+export const socioeconomicBiasRule: AuditRule = {
+  id: "socioeconomic",
   run: (ctx) => {
-    const text = ctx.input.trim();
-    if (!text) return [];
+    const matchedText = matchFirst(ctx.input, socioeconomicTerms);
+    if (!matchedText) return [];
 
-    if (/\b(guarantee|100%|no\s*risk|instantly)\b/i.test(text)) {
-      return [
-        {
-          id: "compliance",
-          title: "Compliance",
-          severity: "High",
-          detail: "Wording suggests an absolute guarantee or unrealistic certainty.",
-          suggestion:
-            "Replace absolutes with supportable language: “designed to”, “helps”, “can improve”, and add context or proof.",
-        },
-      ];
-    }
-    return [];
+    return [
+      {
+        id: "socioeconomic",
+        title: "Socioeconomic filter",
+        category: "Socioeconomic",
+        severity: "Medium",
+        matchedText,
+        detail:
+          "This phrase can screen for access, background, or privilege instead of ability to perform the work.",
+        suggestion:
+          "Focus on demonstrated skills, outcomes, or constraints that are truly required.",
+        inclusiveRewrite:
+          "Replace pedigree-based requirements with evidence-based criteria, such as portfolio, work samples, certifications, or equivalent practical experience.",
+      },
+    ];
+  },
+};
+
+export const toneBiasRule: AuditRule = {
+  id: "tone",
+  run: (ctx) => {
+    const matchedText = matchFirst(ctx.input, aggressiveTerms);
+    if (!matchedText) return [];
+
+    return [
+      {
+        id: "tone",
+        title: "Aggressive tone signal",
+        category: "Tone",
+        severity: ctx.mode === "Hiring" ? "Medium" : "Low",
+        matchedText,
+        detail:
+          "Combative language can repel qualified people who do not identify with high-pressure or exclusionary workplace cues.",
+        suggestion:
+          "Use confident but specific language that describes pace, ownership, and standards without intimidation.",
+        inclusiveRewrite:
+          "Replace crush, dominate, or killer with outcome-focused terms such as improve, lead, solve, grow, or deliver.",
+      },
+    ];
+  },
+};
+
+export const evidenceRule: AuditRule = {
+  id: "evidence",
+  run: (ctx) => {
+    const matchedText = matchFirst(ctx.input, absoluteClaims);
+    if (!matchedText) return [];
+
+    return [
+      {
+        id: "evidence",
+        title: "Unsupported absolute claim",
+        category: "Evidence",
+        severity: "Medium",
+        matchedText,
+        detail:
+          "Absolute claims can create trust and compliance risk unless they are backed by clear evidence.",
+        suggestion:
+          "Add a proof point, narrow the claim, or use supportable language.",
+        inclusiveRewrite:
+          "Replace guaranteed or best with evidence-based wording such as designed to help, based on customer results, or improved by a measured percentage.",
+      },
+    ];
+  },
+};
+
+export const accessibilityRule: AuditRule = {
+  id: "accessibility",
+  run: (ctx) => {
+    const matchedText = matchFirst(ctx.input, accessibilityTerms);
+    if (!matchedText) return [];
+
+    return [
+      {
+        id: "accessibility",
+        title: "Accessibility clarity risk",
+        category: "Accessibility",
+        severity: "Low",
+        matchedText,
+        detail:
+          "This phrase can be unclear for screen-reader users, new users, or people who do not share the same context.",
+        suggestion:
+          "Make the action or expectation explicit and avoid assuming what is obvious or easy.",
+        inclusiveRewrite:
+          "Replace click here or see below with descriptive action text, such as download the report, review the pricing table, or open the application form.",
+      },
+    ];
   },
 };

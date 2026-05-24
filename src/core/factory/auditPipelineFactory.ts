@@ -2,58 +2,91 @@
 
 import type { AuditRule } from "../chain/auditChain";
 import {
-  clarityRule,
-  specificityRule,
-  proofRule,
-  ctaRule,
-  complianceRule,
+  accessibilityRule,
+  ageBiasRule,
+  culturalBiasRule,
+  disabilityBiasRule,
+  evidenceRule,
+  genderBiasRule,
+  socioeconomicBiasRule,
+  toneBiasRule,
 } from "../chain/auditChain";
 import { RulesRegistry } from "../singleton/RulesRegistry";
 
-/**
- * Factory Pattern:
- * Creates different pipelines (chains) depending on the selected Content Type.
- * The caller doesn't manually assemble rules — it asks the factory.
- */
+export type ContentType = "Hiring" | "Marketing" | "Education" | "Healthcare" | "General";
 
-export type ContentType = "Ad" | "Landing Page" | "Email" | "Generic";
-
-function basePipeline(): AuditRule[] {
-  return [clarityRule, proofRule, ctaRule, complianceRule];
+function hiringPipeline(): AuditRule[] {
+  return [
+    genderBiasRule,
+    ageBiasRule,
+    disabilityBiasRule,
+    culturalBiasRule,
+    socioeconomicBiasRule,
+    toneBiasRule,
+    accessibilityRule,
+  ];
 }
 
-function adPipeline(): AuditRule[] {
-  // Ads usually need proof + clarity + CTA, keep it tight
-  return [clarityRule, proofRule, ctaRule, complianceRule];
+function marketingPipeline(): AuditRule[] {
+  return [
+    culturalBiasRule,
+    disabilityBiasRule,
+    socioeconomicBiasRule,
+    toneBiasRule,
+    evidenceRule,
+    accessibilityRule,
+  ];
 }
 
-function landingPipeline(): AuditRule[] {
-  // Landing pages often need more specificity
-  return [clarityRule, specificityRule, proofRule, ctaRule, complianceRule];
+function educationPipeline(): AuditRule[] {
+  return [
+    genderBiasRule,
+    ageBiasRule,
+    disabilityBiasRule,
+    culturalBiasRule,
+    socioeconomicBiasRule,
+    accessibilityRule,
+  ];
 }
 
-function emailPipeline(): AuditRule[] {
-  // Emails: clarity + CTA + compliance, proof optional but useful
-  return [clarityRule, ctaRule, proofRule, complianceRule];
+function healthcarePipeline(): AuditRule[] {
+  return [
+    disabilityBiasRule,
+    culturalBiasRule,
+    socioeconomicBiasRule,
+    evidenceRule,
+    accessibilityRule,
+  ];
+}
+
+function generalPipeline(): AuditRule[] {
+  return [
+    genderBiasRule,
+    ageBiasRule,
+    disabilityBiasRule,
+    culturalBiasRule,
+    socioeconomicBiasRule,
+    toneBiasRule,
+    evidenceRule,
+    accessibilityRule,
+  ];
 }
 
 export function createAuditPipeline(contentType: ContentType): AuditRule[] {
   switch (contentType) {
-    case "Ad":
-      return adPipeline();
-    case "Landing Page":
-      return landingPipeline();
-    case "Email":
-      return emailPipeline();
+    case "Hiring":
+      return hiringPipeline();
+    case "Marketing":
+      return marketingPipeline();
+    case "Education":
+      return educationPipeline();
+    case "Healthcare":
+      return healthcarePipeline();
     default:
-      return basePipeline();
+      return generalPipeline();
   }
 }
 
-/**
- * Convenience helper: apply RulesRegistry (Singleton) toggles so the chain
- * respects enabled/disabled rules globally.
- */
 export function createAuditPipelineFromRegistry(contentType: ContentType): AuditRule[] {
   const chain = createAuditPipeline(contentType);
   const registry = RulesRegistry.getInstance();

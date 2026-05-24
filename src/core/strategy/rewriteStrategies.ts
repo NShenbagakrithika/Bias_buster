@@ -1,6 +1,6 @@
 // src/core/strategy/rewriteStrategies.ts
 
-export type Tone = "Direct" | "Premium" | "Aggressive" | "Soft";
+export type Tone = "Inclusive" | "Professional" | "Warm" | "Concise";
 
 export type Variant = {
   name: string;
@@ -17,87 +17,103 @@ function normalize(input: string) {
   return input.trim().replace(/\s+/g, " ");
 }
 
-function addCta(text: string, cta: string) {
-  if (/\b(book|schedule|try|run|start|join|download)\b/i.test(text)) return text;
-  return `${text} ${cta}`;
+function softenRiskyTerms(text: string) {
+  return text
+    .replace(/\brockstar|ninja|guru\b/gi, "skilled teammate")
+    .replace(/\bchairman\b/gi, "chair")
+    .replace(/\bmanpower\b/gi, "team capacity")
+    .replace(/\byoung|digital native|fresh blood\b/gi, "adaptable")
+    .replace(/\bcrazy|insane|lame\b/gi, "ineffective")
+    .replace(/\bculture fit\b/gi, "values-aligned collaboration")
+    .replace(/\bnative speaker\b/gi, "clear communicator")
+    .replace(/\bcrush|dominate|destroy\b/gi, "improve")
+    .replace(/\bguaranteed|100%\b/gi, "designed to help");
 }
 
-const DirectStrategy: RewriteStrategy = {
-  id: "Direct",
-  label: "Direct",
+const InclusiveStrategy: RewriteStrategy = {
+  id: "Inclusive",
+  label: "Inclusive",
   generate(input) {
-    const base = normalize(input);
+    const base = softenRiskyTerms(normalize(input));
     return [
-      { name: "Concise", fullText: addCta(base, "Run an audit now.") },
-      { name: "Clear benefit", fullText: addCta(base, "Get clear fixes in seconds.") },
-      { name: "CTA-forward", fullText: `Paste your copy → get findings → ship faster. Start now.` },
-    ];
-  },
-};
-
-const PremiumStrategy: RewriteStrategy = {
-  id: "Premium",
-  label: "Premium",
-  generate(input) {
-    const base = normalize(input);
-    return [
+      { name: "Inclusive rewrite", fullText: base },
       {
-        name: "Refined",
-        fullText:
-          addCta(base, "Request a quick audit summary.") +
-          " Designed for clarity and credibility.",
+        name: "Criteria-first",
+        fullText: `${base} Focus on relevant skills, clear expectations, and equivalent experience.`,
       },
       {
-        name: "Executive",
-        fullText:
-          "A more disciplined message wins attention. " +
-          addCta(base, "Generate a report and refine in one pass.") +
-          " Built for decision-makers.",
-      },
-      {
-        name: "Confident",
-        fullText:
-          addCta(base, "Generate a set of polished variants.") +
-          " Keep the promise precise. Keep the tone credible.",
+        name: "Accessible version",
+        fullText: `${base} Use clear action text, avoid assumptions, and make the next step explicit.`,
       },
     ];
   },
 };
 
-const AggressiveStrategy: RewriteStrategy = {
-  id: "Aggressive",
-  label: "Aggressive",
+const ProfessionalStrategy: RewriteStrategy = {
+  id: "Professional",
+  label: "Professional",
   generate(input) {
-    const base = normalize(input);
+    const base = softenRiskyTerms(normalize(input));
     return [
-      { name: "Punchy", fullText: addCta(base, "Stop guessing. Fix it now.") },
-      { name: "Urgent", fullText: addCta(base, "Your copy is costing you — run the audit.") },
-      { name: "Hard CTA", fullText: `Fix the weak lines. Replace the vague claims. Generate better copy now.` },
+      { name: "Polished", fullText: base },
+      {
+        name: "Evidence-led",
+        fullText: `${base} Add a concrete proof point or qualification where the claim may need support.`,
+      },
+      {
+        name: "Decision-ready",
+        fullText: `${base} The language is direct, specific, and suitable for external review.`,
+      },
     ];
   },
 };
 
-const SoftStrategy: RewriteStrategy = {
-  id: "Soft",
-  label: "Soft",
+const WarmStrategy: RewriteStrategy = {
+  id: "Warm",
+  label: "Warm",
   generate(input) {
-    const base = normalize(input);
+    const base = softenRiskyTerms(normalize(input));
     return [
-      { name: "Supportive", fullText: addCta(base, "Try a quick audit whenever you’re ready.") },
-      { name: "Gentle clarity", fullText: addCta(base, "See what’s unclear and improve it step by step.") },
-      { name: "Low pressure", fullText: `Want a clearer message? Paste your copy and get friendly suggestions.` },
+      { name: "Welcoming", fullText: base },
+      {
+        name: "Human-centered",
+        fullText: `${base} We welcome different paths, backgrounds, and ways of working.`,
+      },
+      {
+        name: "Low-friction",
+        fullText: `${base} Share what is relevant, ask for what you need, and make the next step clear.`,
+      },
+    ];
+  },
+};
+
+const ConciseStrategy: RewriteStrategy = {
+  id: "Concise",
+  label: "Concise",
+  generate(input) {
+    const base = softenRiskyTerms(normalize(input));
+    return [
+      { name: "Short", fullText: base },
+      {
+        name: "Plain language",
+        fullText: base.replace(/\butilize\b/gi, "use").replace(/\bfacilitate\b/gi, "help"),
+      },
+      {
+        name: "Action-focused",
+        fullText: `${base} Next step: review the criteria and update unclear wording.`,
+      },
     ];
   },
 };
 
 export const strategies: Record<Tone, RewriteStrategy> = {
-  Direct: DirectStrategy,
-  Premium: PremiumStrategy,
-  Aggressive: AggressiveStrategy,
-  Soft: SoftStrategy,
+  Inclusive: InclusiveStrategy,
+  Professional: ProfessionalStrategy,
+  Warm: WarmStrategy,
+  Concise: ConciseStrategy,
 };
 
 export function generateRewriteVariants(tone: Tone, input: string): Variant[] {
-  const strat = strategies[tone] ?? strategies.Direct;
+  const strat = strategies[tone] ?? strategies.Inclusive;
   return strat.generate(input);
 }

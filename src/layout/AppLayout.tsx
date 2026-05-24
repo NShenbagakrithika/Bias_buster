@@ -6,9 +6,9 @@ import ThemeToggle from "../components/ThemeToggle";
 
 const nav = [
   { to: "/workspace", label: "Workspace" },
-  { to: "/analyze", label: "Audit" },
+  { to: "/analyze", label: "Bias Audit" },
   { to: "/rewrite", label: "Rewrite Studio" },
-  { to: "/rules", label: "Rules" },
+  { to: "/rules", label: "Bias Rules" },
   { to: "/history", label: "Reports" },
 ];
 
@@ -27,9 +27,9 @@ export default function AppLayout() {
 
   const subtitleByPath: Record<string, string> = {
     "/workspace": "Quick actions, recent reports, and usage.",
-    "/analyze": "Run an audit and review findings.",
-    "/rewrite": "Generate tone-controlled rewrite variants.",
-    "/rules": "Enable or disable checks that power audits.",
+    "/analyze": "Scan text for inclusion risks and practical fixes.",
+    "/rewrite": "Generate inclusive rewrite variants.",
+    "/rules": "Enable or disable inclusion checks.",
     "/history": "Review saved audits and rewrites.",
   };
 
@@ -66,7 +66,7 @@ export default function AppLayout() {
               whileHover={reduce ? undefined : { letterSpacing: "-0.01em" }}
               transition={fast}
             >
-              ScriptEngine
+              Bias Buster
             </motion.div>
             <motion.div
               className="mt-1 text-xs text-[var(--muted)]"
@@ -74,7 +74,7 @@ export default function AppLayout() {
               animate={reduce ? undefined : { opacity: 1 }}
               transition={fast}
             >
-              Explainable copy QA + rewrite variants
+              Explainable bias QA + inclusive rewrites
             </motion.div>
           </motion.div>
 

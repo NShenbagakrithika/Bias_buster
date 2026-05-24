@@ -38,15 +38,15 @@ export default function Workspace() {
             Workspace
           </h1>
           <p className="mt-2 text-sm text-[var(--muted)]">
-            Run audits, generate rewrites, manage rules, and review reports — all in one place.
+            Run bias audits, generate inclusive rewrites, manage review rules, and keep local reports in one place.
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Link to="/analyze">
-              <Button>New Audit</Button>
+              <Button>New Bias Audit</Button>
             </Link>
             <Link to="/rewrite">
-              <Button variant="secondary">New Rewrite</Button>
+              <Button variant="secondary">Inclusive Rewrite</Button>
             </Link>
             <Link to="/rules">
               <Button variant="ghost">Manage Rules</Button>
@@ -61,7 +61,7 @@ export default function Workspace() {
         >
           <div className="flex items-center justify-between text-sm">
             <span className="text-[var(--muted)]">
-              Analyses this week
+              Reviews this week
             </span>
             <span className="font-semibold text-[var(--text)]">
               {usage}/{usageLimit}
@@ -83,7 +83,7 @@ export default function Workspace() {
         >
           {recent.length === 0 ? (
             <div className="text-sm text-[var(--muted)]">
-              No reports yet. Run your first audit to get started.
+              No reports yet. Run your first bias audit to get started.
             </div>
           ) : (
             <div className="space-y-2">
